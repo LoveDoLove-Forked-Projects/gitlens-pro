@@ -246,7 +246,7 @@ func processFile(filePath string) error {
 	}
 
 	// 获取目录名以检查版本
-	dirName := filepath.Base(filepath.Dir(filepath.Dir(filePath)))
+	dirName := getExtensionDirName(filePath)
 
 	if isVersion15(dirName) {
 		return processVersion15File(filePath, content)
@@ -323,22 +323,14 @@ func processVersion16File(filePath string, content []byte) error {
 // 处理 17.x 版本的文件
 func processVersion17File(filePath string, content []byte) error {
 	fmt.Printf("处理版本17的文件: %s\n", filePath)
-	// 先执行版本16的处理方法
-	if err := processVersion16File(filePath, content); err != nil {
-		return err
-	}
 
-	// 如果是graph.js文件，再执行版本17的额外处理
+	// 如果是graph.js文件，只执行版本17的处理
 	if strings.Contains(filePath, "webviews") && strings.Contains(filePath, "graph.js") {
-		// 重新读取文件内容
-		updatedContent, err := os.ReadFile(filePath)
-		if err != nil {
-			return fmt.Errorf("重新读取文件失败: %v", err)
-		}
-		return processVersion17GraphFile(filePath, updatedContent)
+		return processVersion17GraphFile(filePath, content)
 	}
 
-	return nil
+	// 其他文件（gitlens.js）执行版本16的处理
+	return processVersion16File(filePath, content)
 }
 
 // 处理 17.x 版本的graph.js文件
@@ -366,4 +358,20 @@ func processVersion17GraphFile(filePath string, content []byte) error {
 	fmt.Printf("找到 %d 个匹配项\n", len(matches))
 
 	return nil
+}
+
+// 向上遍历路径直到找到扩展目录名
+func getExtensionDirName(filePath string) string {
+	p := filePath
+	for {
+		base := filepath.Base(p)
+		if strings.HasPrefix(base, "eamodio.gitlens-") {
+			return base
+		}
+		parent := filepath.Dir(p)
+		if parent == p {
+			return ""
+		}
+		p = parent
+	}
 }
